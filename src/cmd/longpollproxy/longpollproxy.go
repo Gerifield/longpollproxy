@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 
+	"github.com/gorilla/context"
 	"lpp"
 )
 
@@ -13,5 +14,5 @@ func main() {
 
 	lph := lpp.NewLongPollHandler(backend)
 
-	http.ListenAndServe(frontend, lph)
+	http.ListenAndServe(frontend, context.ClearHandler(lph))
 }
