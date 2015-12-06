@@ -8,7 +8,7 @@ import (
 )
 
 var frontend = "127.0.0.1:8001"
-var backend = "ws://127.0.0.1:8002/chat"
+var backend = "ws://127.0.0.1:8000/echo"
 
 func main() {
 
