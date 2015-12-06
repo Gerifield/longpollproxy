@@ -54,6 +54,7 @@ func (lps *LongPollServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		lps.ConnectionStore[socketId] = ws
+		go ws.ProcessRead()
 	}
 
 	if r.Method == "POST" {

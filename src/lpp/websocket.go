@@ -3,10 +3,21 @@ package lpp
 import (
 	"github.com/gorilla/websocket"
 	"net/http"
+	"time"
 )
 
 type WebsocketServer struct {
 	Ws *websocket.Conn
+
+	//Read buffer
+	ReadCh      chan string
+	ReaderError error
+}
+
+type ReadTimeoutError struct{}
+
+func (ReadTimeoutError) Error() string {
+	return "Read timeout"
 }
 
 func NewWebsocketServer(backend string, header http.Header) (*WebsocketServer, error) {
@@ -16,19 +27,22 @@ func NewWebsocketServer(backend string, header http.Header) (*WebsocketServer, e
 		return nil, err
 	}
 	return &WebsocketServer{
-		Ws: ws,
+		Ws:     ws,
+		ReadCh: make(chan string, 256),
 	}, nil
 }
 
-func (ws *WebsocketServer) Process() {
-
+func (ws *WebsocketServer) ProcessRead() {
+	for {
+		b, err := ws.readSock()
+		if err != nil {
+			ws.ReaderError = err
+		}
+		ws.ReadCh <- string(b)
+	}
 }
 
-func (ws *WebsocketServer) SendSock(b []byte) error {
-	return ws.Ws.WriteMessage(websocket.TextMessage, b)
-}
-
-func (ws *WebsocketServer) ReadSock() ([]byte, error) {
+func (ws *WebsocketServer) readSock() ([]byte, error) {
 	_, b, err := ws.Ws.ReadMessage()
 	if err != nil {
 		return []byte(""), err
@@ -41,11 +55,16 @@ func (ws *WebsocketServer) Send(b []byte) error {
 	return ws.Ws.WriteMessage(websocket.TextMessage, b)
 }
 
-//TODO: Add channels etc
 func (ws *WebsocketServer) Read() ([]byte, error) {
-	_, b, err := ws.Ws.ReadMessage()
-	if err != nil {
-		return []byte(""), err
+	if ws.ReaderError != nil {
+		return []byte(""), ws.ReaderError
 	}
-	return b, nil
+
+	select {
+	case str := <-ws.ReadCh:
+		return []byte(str), nil
+	case <-time.After(5 * time.Second):
+		return []byte(""), ReadTimeoutError{}
+	}
+
 }
